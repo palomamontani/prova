@@ -1,0 +1,62 @@
+CREATE OR REPLACE PROCEDURE CORSISTA3.ES14 (v_esito OUT NUMBER) IS
+-- Realizzare una Stored Procedure che calcola il totale fatturato ricevuto per ciascun Ordine di Acquisto. La Stored Procedure deve,
+-- calcolare il totale fatturato ricevuto e lo deve scrivere nel campo Fatturato dell Ordine di Acquisto stesso (la somma degli 
+-- importi dei dettagli dell ordine di acquisto) e restituire l esito della procedura. Il totale fatturato è il totale degli importi
+-- dei dettagli delle fatture passive che fanno riferimento a tutti i dettagli dell Ordine di Acquisto stesso.
+
+    v_totaleimporto NUMBER;
+    
+BEGIN
+    
+    -- setto l'esito a 0 ovvero falso
+    v_esito := 0;
+    
+    -- ciclo ogni ordine di acquisto
+    FOR ordine_record IN (SELECT IDORDINEACQUISTO
+                          FROM ORDINEACQUISTO) LOOP
+    
+        -- per ogni ordine setto il totale a 0
+        v_totaleimporto := 0;
+    
+        -- ciclo ogni fattura legata agli ordini e sommo l'importo
+        FOR ordine_dettaglio_record IN (SELECT FATTURAPASSIVADETTAGLIO.IMPORTO
+                                        FROM FATTURAPASSIVADETTAGLIO, ORDINEACQUISTODETTAGLIO
+                                        WHERE FATTURAPASSIVADETTAGLIO.IDORDINEDIACQUISTODETTAGLIO = ORDINEACQUISTODETTAGLIO.IDORDINEDIACQUISTODETTAGLIO
+                                        AND ORDINEACQUISTODETTAGLIO.IDORDINEACQUISTO = ordine_record.IDORDINEACQUISTO) LOOP
+        
+            v_totaleimporto := v_totaleimporto + ordine_dettaglio_record.IMPORTO;
+            
+            -- nel caso in cui esito è 0 (false) arrivato a questo punto lo setto a 1 (true)
+            IF (v_esito = 0) THEN
+            
+                v_esito := 1;    
+            
+            END IF;
+                               
+        END LOOP;
+        
+        -- una volta finito di fare le somme aggiorno il campo fatturato nella tabella ORDINEACQUISTO
+        UPDATE ORDINEACQUISTO
+        SET FATTURATO = v_totaleimporto
+        WHERE ORDINEACQUISTO.IDORDINEACQUISTO = ordine_record.IDORDINEACQUISTO;
+                 
+    END LOOP;
+    
+    -- nel caso in cui la procedura è arrivata fino alla somma degli importi stampo che la procedura ha avuto successo
+    IF (v_esito = 1) THEN
+    
+        DBMS_OUTPUT.PUT_LINE('La procedura è avvenuta con successo');
+        
+    ELSE
+    
+        DBMS_OUTPUT.PUT_LINE('La procedura è fallita');
+    
+    END IF;
+    
+EXCEPTION
+    WHEN OTHERS
+        THEN DBMS_OUTPUT.PUT_LINE('Si è verificato un errore');
+        v_esito := 0;
+
+END;
+/
